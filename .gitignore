@@ -30,14 +30,6 @@ ENV/
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 
-# Data files (не коммитим данные)
-data/raw/*
-data/processed/*
-data/interim/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-!data/interim/.gitkeep
-
 # Models (большие файлы)
 models/*.pkl
 models/*.joblib

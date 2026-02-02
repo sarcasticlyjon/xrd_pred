@@ -77,7 +77,6 @@ def parse_formula(formula: str, handle_brackets=True) -> Dict[str, float]:
         return base
 
     formula = text
-
     # Обработка гидратов: предпочитаем среднюю точку (·).
     if '·' in formula:
         # CuSO4·5H2O → CuSO4 + 5H2O
