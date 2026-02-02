@@ -15,11 +15,14 @@ class BuildReport:
     """НОВОЕ: Детальный отчёт"""
     total_files: int
     successful: int
-    failed: int
     duplicates_found: int
     final_samples: int
     failed_files: List[Dict]
     parsing_stats: Dict
+
+    @property
+    def failed(self) -> int:
+        return len(self.failed_files)
     
     def __str__(self):
         return f"""
@@ -62,19 +65,37 @@ class XRDDatasetBuilder:
         try:
             spectrum = XRDSpectrum.from_file(str(filepath), self.recovery_mode)
             if not spectrum or not spectrum.is_valid:
-                self.failed_files.append({'filename': filepath.name, 'reason': 'Invalid spectrum'})
-                return None
+                return {
+                    'result': None,
+                    'error': {'filename': filepath.name, 'reason': 'Invalid spectrum'},
+                    'parsed': False,
+                }
             
             metadata = self.extractor.parse(filepath.name)
             if not metadata:
-                self.failed_files.append({'filename': filepath.name, 'reason': 'Parse failed'})
-                return None
+                return {
+                    'result': None,
+                    'error': {'filename': filepath.name, 'reason': 'Parse failed'},
+                    'parsed': False,
+                }
             
-            return {**metadata, 'filename': filepath.name, 'n_points': len(spectrum.angles),
-                    'intensity_mean': float(spectrum.intensities.mean()), 'intensity_std': float(spectrum.intensities.std())}
+            return {
+                'result': {
+                    **metadata,
+                    'filename': filepath.name,
+                    'n_points': len(spectrum.angles),
+                    'intensity_mean': float(spectrum.intensities.mean()),
+                    'intensity_std': float(spectrum.intensities.std()),
+                },
+                'error': None,
+                'parsed': True,
+            }
         except Exception as e:
-            self.failed_files.append({'filename': filepath.name, 'reason': str(e)})
-            return None
+            return {
+                'result': None,
+                'error': {'filename': filepath.name, 'reason': str(e)},
+                'parsed': False,
+            }
     
     def build(self, return_report=False):
         """НОВОЕ: return_report для статистики"""
@@ -86,6 +107,10 @@ class XRDDatasetBuilder:
             print(f"Found {len(files)} files")
         
         results = []
+        failed_files = []
+        parsing_total = 0
+        parsing_success = 0
+        parsing_failed = 0
         
         # НОВОЕ: Parallel processing
         if self.n_jobs > 1:
@@ -93,13 +118,41 @@ class XRDDatasetBuilder:
                 futures = {executor.submit(self._process_file, f): f for f in files}
                 iterator = tqdm(as_completed(futures), total=len(files), desc="Building") if self.show_progress else as_completed(futures)
                 for future in iterator:
-                    result = future.result()
-                    if result: results.append(result)
+                    outcome = future.result()
+                    if outcome['result']:
+                        results.append(outcome['result'])
+                    if outcome['error']:
+                        failed_files.append(outcome['error'])
+                    if outcome['parsed']:
+                        parsing_total += 1
+                        parsing_success += 1
+                    elif outcome['error'] and outcome['error']['reason'] == 'Parse failed':
+                        parsing_total += 1
+                        parsing_failed += 1
         else:
             iterator = tqdm(files, desc="Building") if self.show_progress else files
             for f in iterator:
-                result = self._process_file(f)
-                if result: results.append(result)
+                outcome = self._process_file(f)
+                if outcome['result']:
+                    results.append(outcome['result'])
+                if outcome['error']:
+                    failed_files.append(outcome['error'])
+                if outcome['parsed']:
+                    parsing_total += 1
+                    parsing_success += 1
+                elif outcome['error'] and outcome['error']['reason'] == 'Parse failed':
+                    parsing_total += 1
+                    parsing_failed += 1
+
+        parsing_rate = (parsing_success / parsing_total * 100) if parsing_total > 0 else 0
+        parsing_stats = {
+            'total': parsing_total,
+            'success': parsing_success,
+            'failed': parsing_failed,
+            'success_rate': f"{parsing_rate:.1f}%",
+        }
+
+        self.failed_files = failed_files
         
         df = pd.DataFrame(results)
         
@@ -113,7 +166,7 @@ class XRDDatasetBuilder:
                 df = df[~df['sample_id'].duplicated()]
         
         if return_report:
-            report = BuildReport(len(files), len(results), len(self.failed_files), dups, len(df), self.failed_files, self.extractor.get_stats())
+            report = BuildReport(len(files), len(results), dups, len(df), failed_files, parsing_stats)
             if self.verbose: print(report)
             return df, report
         
