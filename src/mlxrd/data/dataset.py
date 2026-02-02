@@ -53,13 +53,25 @@ class XRDDatasetBuilder:
     - ✅ Failed files logging
     - ✅ Multiple formats
     """
-    def __init__(self, xrd_folder, metadata_file=None, verbose=True, recovery_mode=True, n_jobs=1, show_progress=True):
+    def __init__(
+        self,
+        xrd_folder,
+        metadata_file=None,
+        verbose=True,
+        recovery_mode=True,
+        n_jobs=1,
+        show_progress=True,
+        pointwise=False,
+        sap_intensity_threshold=7000.0,
+    ):
         self.xrd_folder = Path(xrd_folder)
         self.metadata_file = metadata_file
         self.verbose = verbose
         self.recovery_mode = recovery_mode
         self.n_jobs = n_jobs
         self.show_progress = show_progress
+        self.pointwise = pointwise
+        self.sap_intensity_threshold = sap_intensity_threshold
         self.extractor = MetadataExtractor()
         self.failed_files = []
         
@@ -105,6 +117,13 @@ class XRDDatasetBuilder:
     
     def build(self, return_report=False):
         """НОВОЕ: return_report для статистики"""
+        if self.pointwise or (self.metadata_file and str(self.metadata_file).lower().endswith('.xlsx')):
+            point_builder = XRDPointDatasetBuilder(
+                xrd_folder=str(self.xrd_folder),
+                metadata_xlsx=str(self.metadata_file) if self.metadata_file else None,
+                sap_intensity_threshold=self.sap_intensity_threshold,
+            )
+            return point_builder.build()
         files = list(self.xrd_folder.glob('*.txt'))
         if not files:
             raise ValueError(f"No .txt files in {self.xrd_folder}")

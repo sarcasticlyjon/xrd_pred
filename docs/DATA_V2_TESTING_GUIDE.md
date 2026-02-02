@@ -76,6 +76,19 @@ df_points = builder.build()
 print(df_points.columns)
 ```
 
+Через `XRDDatasetBuilder`:
+
+```python
+from mlxrd import XRDDatasetBuilder
+
+df_points = XRDDatasetBuilder(
+    xrd_folder='data/raw/xrd',
+    metadata_file='data/raw/metadata/B-series_long.xlsx',
+    pointwise=True,
+).build()
+print(df_points.columns)
+```
+=======
 ---
 
 ## 📄 Формат имён файлов (важно)

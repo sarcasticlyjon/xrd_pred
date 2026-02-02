@@ -134,6 +134,14 @@ point_builder = XRDPointDatasetBuilder(
     metadata_xlsx='data/raw/metadata/B-series_long.xlsx'
 )
 point_df = point_builder.build()
+
+# Если нужен legacy-формат через XRDDatasetBuilder
+point_df = XRDDatasetBuilder(
+    xrd_folder='data/raw/xrd',
+    metadata_file='data/raw/metadata/B-series_long.xlsx',
+    pointwise=True,
+).build()
+=======
 ```
 
 ---

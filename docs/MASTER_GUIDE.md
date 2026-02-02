@@ -122,7 +122,7 @@ y_pred = model.predict(X_encoded)
 plot_predictions(y, y_pred, interactive=True)
 ```
 
-
+ 
 ### Пример 1b: Legacy-точечный датасет
 
 ```python
@@ -136,6 +136,18 @@ df_points = builder.build()
 print(df_points.head())
 ```
 
+Аналогично через `XRDDatasetBuilder`:
+
+```python
+from mlxrd import XRDDatasetBuilder
+
+df_points = XRDDatasetBuilder(
+    xrd_folder='data/raw/xrd',
+    metadata_file='data/raw/metadata/B-series_long.xlsx',
+    pointwise=True,
+).build()
+```
+=======
 =======
 
 ---
@@ -146,6 +158,8 @@ print(df_points.head())
    `XRDDatasetBuilder` читает XRD-файлы, извлекает метаданные из имени файла и строит датафрейм с признаками.  
    Результат: таблица с признаками + `BuildReport` (успехи/ошибки/дубликаты/статистика парсинга).  
    По умолчанию сохраняются агрегаты `intensity_mean` и `intensity_std` (сырых интенсивностей в датафрейме нет).
+   Для legacy-формата можно передать `metadata_file` (xlsx) и `pointwise=True`.
+=======
 =======
    Результат: таблица с признаками + `BuildReport` (успехи/ошибки/дубликаты/статистика парсинга).
 
@@ -160,6 +174,8 @@ print(df_points.head())
 - `Material.txt`
 - `123 Material.txt`
 - `123 Material substrate.txt`
+- `B-467_STO_LAO_4.txt`
+=======
 changes-hwidr5
 - `B-467_STO_LAO_4.txt`
 =======
@@ -171,8 +187,8 @@ changes-hwidr5
 1. Переименовать файлы под одну из схем выше.
 2. Либо подготовить внешний метадатасет и сшивать его с данными после `build()`.
 
-=======
-=======
+
+
 
 2. **Preprocessing**  
    Признаки очищаются и преобразуются:  
