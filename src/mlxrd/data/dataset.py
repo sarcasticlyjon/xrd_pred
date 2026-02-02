@@ -30,13 +30,18 @@ class BuildReport:
 ║       DATASET BUILD REPORT v2.0              ║
 ╠══════════════════════════════════════════════╣
 ║ Total files:        {self.total_files:5d}                    ║
-║ Successful:         {self.successful:5d} ({self.successful/self.total_files*100:.1f}%)         ║
-║ Failed:             {self.failed:5d} ({self.failed/self.total_files*100:.1f}%)         ║
+║ Successful:         {self.successful:5d} ({self._rate(self.successful):.1f}%)         ║
+║ Failed:             {self.failed:5d} ({self._rate(self.failed):.1f}%)         ║
 ║ Duplicates removed: {self.duplicates_found:5d}                    ║
 ║ Final samples:      {self.final_samples:5d}                    ║
 ╠══════════════════════════════════════════════╣
 ║ Parsing success: {self.parsing_stats.get('success_rate', 'N/A')}                ║
 ╚══════════════════════════════════════════════╝"""
+
+    def _rate(self, value: int) -> float:
+        if self.total_files == 0:
+            return 0.0
+        return value / self.total_files * 100
 
 class XRDDatasetBuilder:
     """
@@ -108,9 +113,8 @@ class XRDDatasetBuilder:
         
         results = []
         failed_files = []
-        parsing_total = 0
+        parsing_total = len(files)
         parsing_success = 0
-        parsing_failed = 0
         
         # НОВОЕ: Parallel processing
         if self.n_jobs > 1:
@@ -124,11 +128,7 @@ class XRDDatasetBuilder:
                     if outcome['error']:
                         failed_files.append(outcome['error'])
                     if outcome['parsed']:
-                        parsing_total += 1
                         parsing_success += 1
-                    elif outcome['error'] and outcome['error']['reason'] == 'Parse failed':
-                        parsing_total += 1
-                        parsing_failed += 1
         else:
             iterator = tqdm(files, desc="Building") if self.show_progress else files
             for f in iterator:
@@ -138,12 +138,9 @@ class XRDDatasetBuilder:
                 if outcome['error']:
                     failed_files.append(outcome['error'])
                 if outcome['parsed']:
-                    parsing_total += 1
                     parsing_success += 1
-                elif outcome['error'] and outcome['error']['reason'] == 'Parse failed':
-                    parsing_total += 1
-                    parsing_failed += 1
 
+        parsing_failed = parsing_total - parsing_success
         parsing_rate = (parsing_success / parsing_total * 100) if parsing_total > 0 else 0
         parsing_stats = {
             'total': parsing_total,
@@ -166,7 +163,14 @@ class XRDDatasetBuilder:
                 df = df[~df['sample_id'].duplicated()]
         
         if return_report:
-            report = BuildReport(len(files), len(results), dups, len(df), failed_files, parsing_stats)
+            report = BuildReport(
+                len(files),
+                len(results),
+                dups,
+                len(df),
+                failed_files,
+                parsing_stats,
+            )
             if self.verbose: print(report)
             return df, report
         
