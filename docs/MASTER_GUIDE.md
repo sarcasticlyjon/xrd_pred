@@ -38,7 +38,7 @@ ML XRD v2.0 - это комплексный пакет для анализа XRD
 
 ### Системные требования
 
-- Python 3.8+
+- Python 3.10+
 - 4+ GB RAM (рекомендуется 8 GB)
 - 500 MB свободного места
 
@@ -120,6 +120,27 @@ y_pred = model.predict(X_encoded)
 plot_predictions(y, y_pred, interactive=True)
 ```
 
+---
+
+## 🧭 Как устроен pipeline (логика работы)
+
+1. **Data Pipeline**  
+   `XRDDatasetBuilder` читает XRD-файлы, извлекает метаданные из имени файла и строит датафрейм с признаками.  
+   Результат: таблица с признаками + `BuildReport` (успехи/ошибки/дубликаты/статистика парсинга).
+
+2. **Preprocessing**  
+   Признаки очищаются и преобразуются:  
+   - `TargetEncoder` кодирует категориальные поля.  
+   - `parse_formula` извлекает элементы из химической формулы.  
+   - `add_element_columns` добавляет численные признаки по элементам.  
+
+3. **Models**  
+   `train_model` обучает модель и возвращает метрики (R², MAE, RMSE + CV).  
+   Опционально: `tune_hyperparameters` подбирает параметры, `ModelRegistry` версионирует артефакты.
+
+4. **Analysis**  
+   Построение графиков, интерпретация важности признаков и генерация HTML-отчётов.
+
 ### Пример 2: Hyperparameter Tuning
 
 ```python
@@ -187,7 +208,7 @@ print(f"Best: {best_key} with R²={info['metrics']['r2_test']:.4f}")
 **Новое в v2.0:**
 - min_samples_leaf защита
 - Save/load encoders
-- Скобки и гидраты в формулах
+- Скобки и гидраты в формулах (для гидратов используйте символ `·`)
 - Element features
 - Inverse transform
 
@@ -352,6 +373,13 @@ pytest tests/test_data.py -v
 
 **Всего: 34 готовых теста**
 
+### Замечания по тестированию
+
+- Для гидратов в химических формулах используйте символ `·` (например, `CuSO4·5H2O`).  
+  Точка `.` рассматривается как десятичный разделитель (например, `Ba0.5Sr0.5TiO3`).
+- В `BuildReport` показатель **Parsing success** считается по количеству файлов, 
+  которые успешно распарсились в метаданные.
+
 ---
 
 ## ❓ FAQ
@@ -420,8 +448,8 @@ generate_html_report(
 ## 🔗 Ссылки
 
 - **Документация:** `ML_XRD_V2_DOCUMENTATION/`
-- **GitHub:** https://github.com/yourusername/ml_xrd
-- **Issues:** https://github.com/yourusername/ml_xrd/issues
+- **GitHub:** https://github.com/your-org/xrd_pred
+- **Issues:** https://github.com/your-org/xrd_pred/issues
 
 ---
 
@@ -431,7 +459,9 @@ generate_html_report(
 1. Проверьте FAQ выше
 2. Прочитайте соответствующий Testing Guide
 3. Откройте Issue на GitHub
-4. Напишите на email: your.email@example.com
+4. При публикации проекта добавьте актуальный контакт (email/чат/канал)
+
+> ⚠️ Замените ссылку на ваш реальный репозиторий при публикации проекта.
 
 ---
 
