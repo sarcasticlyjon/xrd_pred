@@ -88,6 +88,22 @@ df_points = XRDDatasetBuilder(
 ).build()
 print(df_points.columns)
 ```
+=======
+---
+
+## 📄 Формат имён файлов (важно)
+
+Парсер метаданных работает по шаблонам:
+
+- `Material_substrate_123.txt`
+- `Material_123_substrate.txt`
+- `Material_substrate.txt`
+- `Material.txt`
+- `123 Material.txt`
+- `123 Material substrate.txt`
+
+Если имена отличаются (например, другой порядок или дополнительные токены),
+файл будет считаться **неуспешно распарсенным** и не попадёт в итоговый датасет.
 
 ---
 
