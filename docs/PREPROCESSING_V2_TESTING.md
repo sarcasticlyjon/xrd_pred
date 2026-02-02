@@ -30,6 +30,9 @@ python -c "from mlxrd.preprocessing import TargetEncoder; print('✅ OK')"
 ### ✅ 6. **Element Features** (avg_mass, electronegativity, etc.)
 ### ✅ 7. **TransformPipeline** (chaining)
 
+> ⚠️ Для гидратов используйте символ `·` (например, `CuSO4·5H2O`).  
+> Точка `.` в формулах трактуется как десятичный разделитель (например, `Ba0.5Sr0.5TiO3`).
+
 ---
 
 ## 🧪 ТЕСТ 1: TargetEncoder - min_samples_leaf

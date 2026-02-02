@@ -29,6 +29,65 @@ python -c "from mlxrd.data import XRDDatasetBuilder; print('✅ OK')"
 ### ✅ 5. **Recovery Mode** (восстановление битых файлов)
 ### ✅ 6. **Build Report** (детальная статистика)
 ### ✅ 7. **Multiple Export Formats** (CSV, Parquet)
+### ✅ 8. **Point-wise Dataset Builder** (2θ/intensity + метаданные)
+
+---
+
+## 📄 Формат имён файлов (важно)
+
+Парсер метаданных работает по шаблонам:
+
+- `Material_substrate_123.txt`
+- `Material_123_substrate.txt`
+- `Material_substrate.txt`
+- `Material.txt`
+- `123 Material.txt`
+- `123 Material substrate.txt`
+- `B-467_STO_LAO_4.txt`
+
+Если имена отличаются (например, другой порядок или дополнительные токены),
+файл будет считаться **неуспешно распарсенным** и не попадёт в итоговый датасет.
+
+---
+
+## 📊 Какие столбцы формируются
+
+`XRDDatasetBuilder` возвращает агрегаты по интенсивности:
+`intensity_mean`, `intensity_std` и `n_points`.  
+Исходной колонки `intensity` в результирующем датафрейме **нет** — это значит,
+что для обучения обычно используют `intensity_mean` (или другие агрегаты) в качестве `y`.
+
+### Точечный датасет (legacy-формат)
+
+Для построения датасета с колонками `2thetta/intensity` и расширенными
+технологическими параметрами используйте `XRDPointDatasetBuilder`.
+Он собирает данные по каждой точке спектра и добавляет поля из Excel-метаданных.
+
+Пример:
+
+```python
+from mlxrd import XRDPointDatasetBuilder
+
+builder = XRDPointDatasetBuilder(
+    xrd_folder='data/raw/xrd',
+    metadata_xlsx='data/raw/metadata/B-series_long.xlsx',
+)
+df_points = builder.build()
+print(df_points.columns)
+```
+
+Через `XRDDatasetBuilder`:
+
+```python
+from mlxrd import XRDDatasetBuilder
+
+df_points = XRDDatasetBuilder(
+    xrd_folder='data/raw/xrd',
+    metadata_file='data/raw/metadata/B-series_long.xlsx',
+    pointwise=True,
+).build()
+print(df_points.columns)
+```
 
 ---
 
@@ -200,6 +259,10 @@ Building: 100%|████████████████████| 156
 ✅ ТЕСТ ПРОЙДЕН: No duplicates in final dataset!
    Removed: 12
 ```
+
+**Примечание по отчёту:**  
+`Parsing success` — доля файлов, успешно распарсенных в метаданные.  
+Файлы с ошибками чтения или некорректным спектром учитываются как неуспешные.
 
 ---
 

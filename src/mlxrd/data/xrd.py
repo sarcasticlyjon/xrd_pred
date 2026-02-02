@@ -24,7 +24,22 @@ class XRDSpectrum:
     @classmethod
     def from_file(cls, filepath, recovery_mode=True):
         try:
-            data = pd.read_csv(filepath, sep = r'\s+', header=None, names=['angle', 'intensity'], comment='#')
+            data = pd.read_csv(
+                filepath,
+                sep=r'\s+',
+                header=None,
+                names=['angle', 'intensity'],
+                comment='#',
+                engine='python',
+                encoding='utf-8',
+                encoding_errors='replace',
+                on_bad_lines='skip',
+            )
+            data['angle'] = pd.to_numeric(data['angle'], errors='coerce')
+            data['intensity'] = pd.to_numeric(data['intensity'], errors='coerce')
+            data = data.dropna()
+            if data.empty:
+                return None
             spec = cls(data['angle'].values, data['intensity'].values, Path(filepath).name)
             if not spec.is_valid and recovery_mode:
                 return cls._recover(data, Path(filepath).name)
