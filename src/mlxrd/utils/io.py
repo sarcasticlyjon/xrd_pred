@@ -31,6 +31,8 @@ def save_data(df: pd.DataFrame, filepath: str, **kwargs):
         df.to_parquet(filepath, **kwargs)
     elif path.suffix == '.json':
         df.to_json(filepath, **kwargs)
+    else:
+        raise ValueError(f"Unsupported format: {path.suffix}")
 
 def chunked_read(filepath: str, chunksize: int = 10000) -> Iterator[pd.DataFrame]:
     """NEW v2.0: Chunked reading for large files"""
