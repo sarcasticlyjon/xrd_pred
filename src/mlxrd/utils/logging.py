@@ -8,9 +8,17 @@ class StructuredLogger:
     def __init__(self, name: str, level: str = 'INFO'):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(JsonFormatter())
-        self.logger.addHandler(handler)
+        self.logger.propagate = False
+        if not self._has_json_formatter():
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setFormatter(JsonFormatter())
+            self.logger.addHandler(handler)
+
+    def _has_json_formatter(self) -> bool:
+        return any(
+            isinstance(handler.formatter, JsonFormatter)
+            for handler in self.logger.handlers
+        )
     
     def log(self, level: str, message: str, **kwargs):
         """Log with structured data"""
@@ -34,6 +42,9 @@ def setup_logger(name: str, level: str = 'INFO', log_file: Optional[str] = None,
     """Setup logger"""
     logger = logging.getLogger(name)
     logger.setLevel(level)
+    logger.propagate = False
+    if logger.handlers:
+        logger.handlers.clear()
     
     # Console handler
     console = logging.StreamHandler()
