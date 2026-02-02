@@ -46,11 +46,15 @@ def parse_formula(formula: str, handle_brackets=True) -> Dict[str, float]:
         {'Cu': 1.0, 'S': 1.0, 'O': 9.0, 'H': 10.0}
     """
     # Обработка гидратов
-    if '·' in formula or '.' in formula:
+    hydrate_dot_pattern = r'(?<=\d)\.(?=[A-Z])'
+    if '·' in formula or re.search(hydrate_dot_pattern, formula):
         # CuSO4·5H2O → CuSO4 + 5H2O
-        parts = re.split(r'[·.]', formula)
-        elements = {}
+        parts = re.split(r'·', formula)
+        dot_split_parts = []
         for part in parts:
+            dot_split_parts.extend(re.split(hydrate_dot_pattern, part))
+        elements = {}
+        for part in dot_split_parts:
             part_elements = parse_formula(part, handle_brackets=False)
             for el, count in part_elements.items():
                 elements[el] = elements.get(el, 0) + count
