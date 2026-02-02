@@ -26,6 +26,11 @@ class MetadataExtractor:
     
     def _load_defaults(self):
         self.rules = [
+            ParsingRule(
+                r'^(?P<sample_number>\d+)\s+(?P<material>[A-Za-z0-9.]+)(?:\s+(?P<substrate>[A-Za-z0-9.]+))?',
+                ['sample_number', 'material', 'substrate'],
+                11,
+            ),
             ParsingRule(r'^(?P<material>[A-Z][A-Za-z0-9.]+)_(?P<substrate>[a-z]+)_(?P<sample_number>\d+)', ['material', 'substrate', 'sample_number'], 10),
             ParsingRule(r'^(?P<material>[A-Z][A-Za-z0-9.]+)_(?P<sample_number>\d+)_(?P<substrate>[a-z]+)', ['material', 'sample_number', 'substrate'], 9),
             ParsingRule(r'^(?P<material>[A-Z][A-Za-z0-9.]+)_(?P<substrate>[a-z]+)', ['material', 'substrate'], 8),

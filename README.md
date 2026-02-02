@@ -2,9 +2,9 @@
 
 **Complete Machine Learning Pipeline for XRD Data Analysis**
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/yourusername/ml_xrd)
+[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/your-org/xrd_pred)
 
 ---
 
@@ -186,8 +186,10 @@ ML XRD Team
 
 ## 📧 Контакты
 
-- GitHub: https://github.com/yourusername/ml_xrd
-- Email: your.email@example.com
+Если есть вопросы или баги — откройте Issue в репозитории:
+https://github.com/your-org/xrd_pred/issues
+
+> ⚠️ Замените ссылку на ваш реальный репозиторий при публикации проекта.
 
 ---
 
