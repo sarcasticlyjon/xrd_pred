@@ -26,6 +26,11 @@ class MetadataExtractor:
     
     def _load_defaults(self):
         self.rules = [
+            ParsingRule(
+                r'^(?P<sample_number>\d+)\s+(?P<material>[A-Za-z0-9.]+)(?:\s+(?P<substrate>[A-Za-z0-9.]+))?',
+                ['sample_number', 'material', 'substrate'],
+                11,
+            ),
             ParsingRule(r'^(?P<material>[A-Z][A-Za-z0-9.]+)_(?P<substrate>[a-z]+)_(?P<sample_number>\d+)', ['material', 'substrate', 'sample_number'], 10),
             ParsingRule(r'^(?P<material>[A-Z][A-Za-z0-9.]+)_(?P<sample_number>\d+)_(?P<substrate>[a-z]+)', ['material', 'sample_number', 'substrate'], 9),
             ParsingRule(r'^(?P<material>[A-Z][A-Za-z0-9.]+)_(?P<substrate>[a-z]+)', ['material', 'substrate'], 8),
@@ -35,6 +40,15 @@ class MetadataExtractor:
     def parse(self, filename: str) -> Optional[Dict]:
         self.stats['total'] += 1
         name = filename.rsplit('.', 1)[0]
+
+        parsed = parse_filename_safe(filename)
+        if parsed.get("is_valid"):
+            self.stats['success'] += 1
+            parsed.pop("is_valid", None)
+            parsed.pop("skip_reason", None)
+            parsed.pop("filename", None)
+            return parsed
+
         for rule in self.rules:
             match = re.match(rule.pattern, name)
             if match:
@@ -75,14 +89,50 @@ def parse_gas_ratio(value: Optional[str]) -> Dict[str, float]:
     if not text:
         return {}
 
+    normalized = re.sub(r'\s+', ' ', text)
+    normalized = normalized.replace(' = ', '=').replace(' / ', '/')
+
+    legacy_match = re.search(r'([A-Za-z/]+)\s*=\s*([\d.]+)\s*/\s*([\d.]+)', text)
+    if legacy_match:
+        gases = legacy_match.group(1).split("/")
+        ratios = [float(legacy_match.group(2)), float(legacy_match.group(3))]
+        if len(gases) == 2 and sum(ratios) > 0:
+            total = sum(ratios)
+            return {
+                f"{gases[0]}_percent": ratios[0] / total * 100,
+                f"{gases[1]}_percent": ratios[1] / total * 100,
+            }
+
+    legacy_match = re.search(r'([A-Za-z/]+)\s*=\s*([\d.]+)\s*/\s*([\d.]+)', normalized)
+    if legacy_match:
+        gases = legacy_match.group(1).split("/")
+        ratios = [float(legacy_match.group(2)), float(legacy_match.group(3))]
+        if len(gases) == 2 and sum(ratios) > 0:
+            total = sum(ratios)
+            return {
+                f"{gases[0]}_percent": ratios[0] / total * 100,
+                f"{gases[1]}_percent": ratios[1] / total * 100,
+            }
+
     parts = text.split()
-    gases = parts[0].split(":")
+    gases = parts[0].replace("/", ":").split(":")
     if len(parts) == 1:
         if len(gases) == 1:
             return {f"{gases[0]}_percent": 100.0}
         return {}
 
-    ratios = [float(item) for item in parts[1].split(":")]
+    if len(parts) >= 3 and parts[1] == '=':
+        text = f"{parts[0]} {parts[2]}"
+        parts = text.split()
+        gases = parts[0].split(":")
+
+    ratio_token = parts[1]
+    if ratio_token.startswith('='):
+        ratio_token = ratio_token.lstrip('=')
+    if "/" in ratio_token:
+        ratios = [float(item) for item in ratio_token.split("/")]
+    else:
+        ratios = [float(item) for item in ratio_token.split(":")]
     if len(ratios) != len(gases) or sum(ratios) <= 0:
         return {}
 
@@ -90,66 +140,56 @@ def parse_gas_ratio(value: Optional[str]) -> Dict[str, float]:
     return {f"{gas}_percent": ratio / total * 100 for gas, ratio in zip(gases, ratios)}
 
 
+def _match_sample_number(token: str) -> bool:
+    return bool(re.match(r'^\d{4}$|^B-\d+(?:-\d+)?$|^\d+$', token))
+
+
 def parse_filename(filename: str) -> Dict:
     name = filename.rsplit(".", 1)[0]
     _reject_invalid_patterns(name)
 
-    tokens = [token for token in name.split("_") if token]
-    if len(tokens) < 3:
-        raise ValueError("Недостаточно данных для парсинга имени файла")
+    tokens = [t for t in re.split(r'[\s_]+', name) if t]
+    if not tokens:
+        raise ValueError("Пустое имя файла")
 
-    sample_id = tokens[0]
-    material = tokens[1]
-    index = 2
-
-    while index < len(tokens) and tokens[index].isdigit():
-        index += 1
-
-    electrode = None
-    if index < len(tokens) and tokens[index] in ELECTRODES:
-        electrode = tokens[index]
-        index += 1
-
-    if index >= len(tokens):
-        raise ValueError("Отсутствует подложка в имени файла")
-
-    substrate = _normalize_substrate(tokens[index])
-    index += 1
-
-    remaining = tokens[index:]
-    has_annealing = "anneal" in remaining
-    annealing_temp = None
-    annealing_time = None
-
-    processing_tokens: List[str] = []
-    if has_annealing:
-        anneal_index = remaining.index("anneal")
-        processing_tokens.extend([t for t in remaining[:anneal_index] if not t.isdigit()])
-        after_anneal = remaining[anneal_index + 1 :]
-        if len(after_anneal) >= 2 and after_anneal[0].isdigit() and after_anneal[1].isdigit():
-            annealing_temp = int(after_anneal[0])
-            annealing_time = int(after_anneal[1])
-            after_anneal = after_anneal[2:]
-        processing_tokens.extend([t for t in after_anneal if not t.isdigit()])
-        scan_number = _extract_scan_number(after_anneal)
-    else:
-        processing_tokens.extend([t for t in remaining if not t.isdigit() and t != "anneal"])
-        scan_number = _extract_scan_number(remaining)
-
-    processing_notes = " ".join(processing_tokens) if processing_tokens else None
-
-    return {
-        "sample_id": sample_id,
-        "material": material,
-        "electrode": electrode,
-        "substrate": substrate,
-        "has_annealing": has_annealing,
-        "annealing_temp": annealing_temp,
-        "annealing_time": annealing_time,
-        "processing_notes": processing_notes,
-        "scan_number": scan_number,
-        "is_valid": True,
+    data = {
+        "sample_number": None,
+        "material": None,
+        "substrate": None,
+        "annealed": False,
+        "extra": None,
+        "is_valid": False,
     }
+
+    if tokens and _match_sample_number(tokens[0]):
+        data["sample_number"] = tokens.pop(0)
+    elif tokens and _match_sample_number(tokens[-1]):
+        data["sample_number"] = tokens.pop(-1)
+
+    if tokens:
+        material_match = re.match(r'[A-Za-z][A-Za-z0-9.()]*', tokens[0])
+        if material_match:
+            data["material"] = tokens.pop(0)
+
+    if tokens and tokens[0].isdigit() is False:
+        data["substrate"] = _normalize_substrate(tokens.pop(0))
+
+    remaining = []
+    for token in tokens:
+        if "anneal" in token.lower():
+            data["annealed"] = True
+            cleaned = token.lower().replace("anneal", "").strip()
+            if cleaned:
+                remaining.append(cleaned)
+        else:
+            remaining.append(token)
+
+    data["extra"] = "_".join(remaining).strip() if remaining else None
+
+    if data["sample_number"] and data["material"]:
+        data["is_valid"] = True
+
+    return data
 
 
 def validate_filename(filename: str) -> bool:

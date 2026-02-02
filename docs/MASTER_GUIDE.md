@@ -38,7 +38,7 @@ ML XRD v2.0 - это комплексный пакет для анализа XRD
 
 ### Системные требования
 
-- Python 3.8+
+- Python 3.10+
 - 4+ GB RAM (рекомендуется 8 GB)
 - 500 MB свободного места
 
@@ -102,8 +102,10 @@ builder = XRDDatasetBuilder(
 df, report = builder.build(return_report=True)
 
 # 2. Препроцессинг
+# XRDDatasetBuilder возвращает агрегаты (intensity_mean/intensity_std),
+# а не исходную колонку intensity.
 X = df[['material', 'substrate', 'temperature']]
-y = df['intensity']
+y = df['intensity_mean']
 
 encoder = TargetEncoder(min_samples_leaf=10)
 X_encoded = encoder.fit_transform(X['material'], y)
@@ -119,6 +121,59 @@ model, metrics = train_model(
 y_pred = model.predict(X_encoded)
 plot_predictions(y, y_pred, interactive=True)
 ```
+
+### Пример 1b: Legacy-точечный датасет
+
+```python
+from mlxrd import XRDPointDatasetBuilder
+
+builder = XRDPointDatasetBuilder(
+    xrd_folder='data/raw/xrd',
+    metadata_xlsx='data/raw/metadata/B-series_long.xlsx',
+)
+df_points = builder.build()
+print(df_points.head())
+```
+
+---
+
+## 🧭 Как устроен pipeline (логика работы)
+
+1. **Data Pipeline**  
+   `XRDDatasetBuilder` читает XRD-файлы, извлекает метаданные из имени файла и строит датафрейм с признаками.  
+   Результат: таблица с признаками + `BuildReport` (успехи/ошибки/дубликаты/статистика парсинга).  
+   По умолчанию сохраняются агрегаты `intensity_mean` и `intensity_std` (сырых интенсивностей в датафрейме нет).
+
+### 📄 Формат имён файлов (важно)
+
+По умолчанию парсер ожидает один из вариантов:
+
+- `Material_substrate_123.txt`
+- `Material_123_substrate.txt`
+- `Material_substrate.txt`
+- `Material.txt`
+- `123 Material.txt`
+- `123 Material substrate.txt`
+- `B-467_STO_LAO_4.txt`
+
+Если файл не подходит ни под один шаблон, он считается **неуспешно распарсенным** и
+не попадёт в итоговый датасет. В таком случае рекомендуется:
+
+1. Переименовать файлы под одну из схем выше.
+2. Либо подготовить внешний метадатасет и сшивать его с данными после `build()`.
+
+2. **Preprocessing**  
+   Признаки очищаются и преобразуются:  
+   - `TargetEncoder` кодирует категориальные поля.  
+   - `parse_formula` извлекает элементы из химической формулы.  
+   - `add_element_columns` добавляет численные признаки по элементам.  
+
+3. **Models**  
+   `train_model` обучает модель и возвращает метрики (R², MAE, RMSE + CV).  
+   Опционально: `tune_hyperparameters` подбирает параметры, `ModelRegistry` версионирует артефакты.
+
+4. **Analysis**  
+   Построение графиков, интерпретация важности признаков и генерация HTML-отчётов.
 
 ### Пример 2: Hyperparameter Tuning
 
@@ -162,6 +217,7 @@ print(f"Best: {best_key} with R²={info['metrics']['r2_test']:.4f}")
 
 **Основные функции:**
 - `XRDDatasetBuilder` - построение датасета
+- `XRDPointDatasetBuilder` - точечный датасет (2θ/intensity + метаданные)
 - `MetadataExtractor` - извлечение метаданных
 - `XRDSpectrum` - работа со спектрами
 
@@ -171,6 +227,7 @@ print(f"Best: {best_key} with R²={info['metrics']['r2_test']:.4f}")
 - Recovery mode
 - Duplicate detection
 - Build reports
+- Point-wise dataset builder (на основе legacy-логики)
 
 **Подробнее:** `DATA_V2_TESTING_GUIDE.md`
 
@@ -187,7 +244,7 @@ print(f"Best: {best_key} with R²={info['metrics']['r2_test']:.4f}")
 **Новое в v2.0:**
 - min_samples_leaf защита
 - Save/load encoders
-- Скобки и гидраты в формулах
+- Скобки и гидраты в формулах (для гидратов используйте символ `·`)
 - Element features
 - Inverse transform
 
@@ -352,6 +409,13 @@ pytest tests/test_data.py -v
 
 **Всего: 34 готовых теста**
 
+### Замечания по тестированию
+
+- Для гидратов в химических формулах используйте символ `·` (например, `CuSO4·5H2O`).  
+  Точка `.` рассматривается как десятичный разделитель (например, `Ba0.5Sr0.5TiO3`).
+- В `BuildReport` показатель **Parsing success** считается по количеству файлов, 
+  которые успешно распарсились в метаданные.
+
 ---
 
 ## ❓ FAQ
@@ -420,8 +484,8 @@ generate_html_report(
 ## 🔗 Ссылки
 
 - **Документация:** `ML_XRD_V2_DOCUMENTATION/`
-- **GitHub:** https://github.com/yourusername/ml_xrd
-- **Issues:** https://github.com/yourusername/ml_xrd/issues
+- **GitHub:** https://github.com/your-org/xrd_pred
+- **Issues:** https://github.com/your-org/xrd_pred/issues
 
 ---
 
@@ -431,7 +495,9 @@ generate_html_report(
 1. Проверьте FAQ выше
 2. Прочитайте соответствующий Testing Guide
 3. Откройте Issue на GitHub
-4. Напишите на email: your.email@example.com
+4. При публикации проекта добавьте актуальный контакт (email/чат/канал)
+
+> ⚠️ Замените ссылку на ваш реальный репозиторий при публикации проекта.
 
 ---
 

@@ -2,9 +2,9 @@
 
 **Complete Machine Learning Pipeline for XRD Data Analysis**
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/yourusername/ml_xrd)
+[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/your-org/xrd_pred)
 
 ---
 
@@ -94,7 +94,7 @@ pip install -e ".[dev]"
 ## 🚀 Quick Start
 
 ```python
-from mlxrd import XRDDatasetBuilder, train_model, plot_predictions
+from mlxrd import XRDDatasetBuilder, XRDPointDatasetBuilder, train_model, plot_predictions
 
 # 1. Построение датасета
 builder = XRDDatasetBuilder(
@@ -107,8 +107,10 @@ df, report = builder.build(return_report=True)
 print(report)  # Детальная статистика
 
 # 2. Подготовка данных
-X = df.drop(columns=['intensity'])
-y = df['intensity']
+# XRDDatasetBuilder возвращает агрегаты (intensity_mean/intensity_std),
+# а не исходную колонку intensity.
+X = df.drop(columns=['intensity_mean'])
+y = df['intensity_mean']
 
 # 3. Обучение модели
 model, metrics = train_model(
@@ -125,6 +127,13 @@ plot_predictions(
     interactive=True,      # Интерактивный график
     save_path='pred.html'
 )
+
+# Для legacy-датасета (2theta/intensity + метаданные)
+point_builder = XRDPointDatasetBuilder(
+    xrd_folder='data/raw/xrd',
+    metadata_xlsx='data/raw/metadata/B-series_long.xlsx'
+)
+point_df = point_builder.build()
 ```
 
 ---
@@ -186,8 +195,10 @@ ML XRD Team
 
 ## 📧 Контакты
 
-- GitHub: https://github.com/yourusername/ml_xrd
-- Email: your.email@example.com
+Если есть вопросы или баги — откройте Issue в репозитории:
+https://github.com/your-org/xrd_pred/issues
+
+> ⚠️ Замените ссылку на ваш реальный репозиторий при публикации проекта.
 
 ---
 

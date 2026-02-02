@@ -18,7 +18,7 @@ __version__ = "2.0.0"
 __author__ = "ML XRD Team"
 
 # Импорты из всех модулей
-from .data import XRDDatasetBuilder, MetadataExtractor, XRDSpectrum
+from .data import XRDDatasetBuilder, XRDPointDatasetBuilder, MetadataExtractor, XRDSpectrum
 from .preprocessing import (
     TargetEncoder, normalize_intensity, parse_formula,
     group_train_test_split
@@ -38,7 +38,7 @@ from .utils import (
 
 __all__ = [
     # Data
-    'XRDDatasetBuilder', 'MetadataExtractor', 'XRDSpectrum',
+    'XRDDatasetBuilder', 'XRDPointDatasetBuilder', 'MetadataExtractor', 'XRDSpectrum',
     # Preprocessing
     'TargetEncoder', 'normalize_intensity', 'parse_formula',
     'group_train_test_split',

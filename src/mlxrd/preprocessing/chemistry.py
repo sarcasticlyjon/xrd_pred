@@ -34,7 +34,7 @@ ELEMENT_PROPERTIES = {
 def parse_formula(formula: str, handle_brackets=True) -> Dict[str, float]:
     """
     УЛУЧШЕНО v2.0: поддержка скобок и гидратов
-    
+
     Examples:
         >>> parse_formula('Ba0.5Sr0.5TiO3')
         {'Ba': 0.5, 'Sr': 0.5, 'Ti': 1.0, 'O': 3.0}
@@ -42,23 +42,64 @@ def parse_formula(formula: str, handle_brackets=True) -> Dict[str, float]:
         >>> parse_formula('Ba(Ti0.8Zr0.2)O3')  # NEW!
         {'Ba': 1.0, 'Ti': 0.8, 'Zr': 0.2, 'O': 3.0}
         
-        >>> parse_formula('CuSO4·5H2O')  # NEW!
+        >>> parse_formula('CuSO4·5H2O')  # NEW! гидраты: используйте "·"
         {'Cu': 1.0, 'S': 1.0, 'O': 9.0, 'H': 10.0}
     """
-    # Обработка гидратов
-    hydrate_dot_pattern = r'(?<=\d)\.(?=[A-Z])'
-    if '·' in formula or re.search(hydrate_dot_pattern, formula):
+    if not formula:
+        return {}
+
+    text = formula.strip()
+
+    # Специальные формулы из legacy-датасета.
+    if text == 'STO':
+        return {'Sr': 1.0, 'Ti': 1.0, 'O': 3.0}
+
+    match_bzt = re.match(r'^B(Z|Sn)T\s+(\d+)\/(\d+)$', text)
+    if match_bzt:
+        element = match_bzt.group(1)
+        x_val = float(match_bzt.group(2)) * 0.1
+        y_val = float(match_bzt.group(3)) * 0.1
+        base = {'Ba': 1.0, 'O': 3.0}
+        if element == 'Z':
+            base.update({'Zr': x_val, 'Ti': y_val})
+        else:
+            base.update({'Sn': x_val, 'Ti': y_val})
+        return base
+
+    match_simple = re.match(r'^B(Z|Sn)T$', text)
+    if match_simple:
+        element = match_simple.group(1)
+        base = {'Ba': 1.0, 'O': 3.0}
+        if element == 'Z':
+            base.update({'Zr': 0.5, 'Ti': 0.5})
+        else:
+            base.update({'Sn': 0.5, 'Ti': 0.5})
+        return base
+
+    formula = text
+
+    # Обработка гидратов: предпочитаем среднюю точку (·).
+    if '·' in formula:
         # CuSO4·5H2O → CuSO4 + 5H2O
-        parts = re.split(r'·', formula)
-        dot_split_parts = []
-        for part in parts:
-            dot_split_parts.extend(re.split(hydrate_dot_pattern, part))
+        parts = formula.split('·')
         elements = {}
-        for part in dot_split_parts:
+        for part in parts:
             part_elements = parse_formula(part, handle_brackets=False)
             for el, count in part_elements.items():
                 elements[el] = elements.get(el, 0) + count
         return elements
+
+    # Точки часто используются как десятичные коэффициенты (Ba0.5Sr0.5...).
+    # Разделяем по "." только если в формуле нет десятичных коэффициентов.
+    if '.' in formula and not re.search(r'[A-Z][a-z]?\d+\.\d+', formula):
+        parts = [part for part in formula.split('.') if part]
+        if len(parts) > 1:
+            elements = {}
+            for part in parts:
+                part_elements = parse_formula(part, handle_brackets=False)
+                for el, count in part_elements.items():
+                    elements[el] = elements.get(el, 0) + count
+            return elements
     
     # Обработка скобок
     if handle_brackets and '(' in formula:
