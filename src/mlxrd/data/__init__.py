@@ -9,7 +9,7 @@ from .metadata import (
     validate_filename,
 )
 from .xrd import XRDSpectrum
-from .dataset import XRDDatasetBuilder, BuildReport
+from .dataset import XRDDatasetBuilder, BuildReport, XRDPointDatasetBuilder
 
 __all__ = [
     'MetadataExtractor',
@@ -19,5 +19,6 @@ __all__ = [
     'validate_filename',
     'XRDSpectrum',
     'XRDDatasetBuilder',
+    'XRDPointDatasetBuilder',
     'BuildReport',
 ]

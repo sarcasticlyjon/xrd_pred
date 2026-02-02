@@ -102,8 +102,10 @@ builder = XRDDatasetBuilder(
 df, report = builder.build(return_report=True)
 
 # 2. Препроцессинг
+# XRDDatasetBuilder возвращает агрегаты (intensity_mean/intensity_std),
+# а не исходную колонку intensity.
 X = df[['material', 'substrate', 'temperature']]
-y = df['intensity']
+y = df['intensity_mean']
 
 encoder = TargetEncoder(min_samples_leaf=10)
 X_encoded = encoder.fit_transform(X['material'], y)
@@ -120,12 +122,31 @@ y_pred = model.predict(X_encoded)
 plot_predictions(y, y_pred, interactive=True)
 ```
 
+
+### Пример 1b: Legacy-точечный датасет
+
+```python
+from mlxrd import XRDPointDatasetBuilder
+
+builder = XRDPointDatasetBuilder(
+    xrd_folder='data/raw/xrd',
+    metadata_xlsx='data/raw/metadata/B-series_long.xlsx',
+)
+df_points = builder.build()
+print(df_points.head())
+```
+
+=======
+
 ---
 
 ## 🧭 Как устроен pipeline (логика работы)
 
 1. **Data Pipeline**  
    `XRDDatasetBuilder` читает XRD-файлы, извлекает метаданные из имени файла и строит датафрейм с признаками.  
+   Результат: таблица с признаками + `BuildReport` (успехи/ошибки/дубликаты/статистика парсинга).  
+   По умолчанию сохраняются агрегаты `intensity_mean` и `intensity_std` (сырых интенсивностей в датафрейме нет).
+=======
    Результат: таблица с признаками + `BuildReport` (успехи/ошибки/дубликаты/статистика парсинга).
 
 
@@ -139,6 +160,10 @@ plot_predictions(y, y_pred, interactive=True)
 - `Material.txt`
 - `123 Material.txt`
 - `123 Material substrate.txt`
+changes-hwidr5
+- `B-467_STO_LAO_4.txt`
+=======
+
 
 Если файл не подходит ни под один шаблон, он считается **неуспешно распарсенным** и
 не попадёт в итоговый датасет. В таком случае рекомендуется:
@@ -147,7 +172,7 @@ plot_predictions(y, y_pred, interactive=True)
 2. Либо подготовить внешний метадатасет и сшивать его с данными после `build()`.
 
 =======
-
+=======
 
 2. **Preprocessing**  
    Признаки очищаются и преобразуются:  
@@ -204,6 +229,7 @@ print(f"Best: {best_key} with R²={info['metrics']['r2_test']:.4f}")
 
 **Основные функции:**
 - `XRDDatasetBuilder` - построение датасета
+- `XRDPointDatasetBuilder` - точечный датасет (2θ/intensity + метаданные)
 - `MetadataExtractor` - извлечение метаданных
 - `XRDSpectrum` - работа со спектрами
 
@@ -213,6 +239,7 @@ print(f"Best: {best_key} with R²={info['metrics']['r2_test']:.4f}")
 - Recovery mode
 - Duplicate detection
 - Build reports
+- Point-wise dataset builder (на основе legacy-логики)
 
 **Подробнее:** `DATA_V2_TESTING_GUIDE.md`
 
