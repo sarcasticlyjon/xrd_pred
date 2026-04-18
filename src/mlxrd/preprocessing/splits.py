@@ -26,10 +26,11 @@ def group_train_test_split(
     """
     if test_samples and len(test_samples) > 0:
         # По списку samples
-        if 'sample_id' not in df.columns:
-            raise ValueError("sample_id column required")
+        sample_col = 'sample_id' if 'sample_id' in df.columns else 'sample_number'
+        if sample_col not in df.columns:
+            raise ValueError("sample_id or sample_number column required")
         
-        test_mask = df['sample_id'].isin(test_samples)
+        test_mask = df[sample_col].isin(test_samples)
         train_df = df[~test_mask]
         test_df = df[test_mask]
     else:

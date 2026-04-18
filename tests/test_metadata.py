@@ -12,69 +12,65 @@ class TestParseFilename:
         """Тест базового формата без электрода и отжига"""
         result = parse_filename("1993_BST_sap_4.txt")
         
-        assert result['sample_id'] == '1993'
+        assert result['sample_number'] == '1993'
         assert result['material'] == 'BST'
-        assert result['electrode'] is None
         assert result['substrate'] == 'sap'
-        assert result['has_annealing'] is False
-        assert result['scan_number'] == 4
+        assert result['annealed'] is False
+        assert result['extra'] == '4'
         assert result['is_valid'] is True
     
     def test_parse_with_electrode_and_anneal(self):
-        """Тест файла с электродом и отжигом"""
+        """Тест файла с дополнительными токенами и отжигом"""
         result = parse_filename("2198_BST_Pt_alum_anneal_8.txt")
         
-        assert result['sample_id'] == '2198'
+        assert result['sample_number'] == '2198'
         assert result['material'] == 'BST'
-        assert result['electrode'] == 'Pt'
-        assert result['substrate'] == 'alum'
-        assert result['has_annealing'] is True
-        assert result['scan_number'] == 8
+        assert result['substrate'] == 'Pt'
+        assert result['annealed'] is True
+        assert result['extra'] == 'alum_8'
         assert result['is_valid'] is True
     
     def test_parse_b_series(self):
         """Тест B-серии"""
         result = parse_filename("B-374_BSnT_alum_laser_4_2_4.txt")
         
-        assert result['sample_id'] == 'B-374'
+        assert result['sample_number'] == 'B-374'
         assert result['material'] == 'BSnT'
         assert result['substrate'] == 'alum'
-        assert result['scan_number'] == 4
-        assert 'laser' in result.get('processing_notes', '')
+        assert result['extra'] == 'laser_4_2_4'
         assert result['is_valid'] is True
     
     def test_parse_with_anneal_temp_time(self):
-        """Тест извлечения температуры и времени отжига"""
+        """Тест отжига и сохранения остаточных токенов в extra"""
         result = parse_filename("2476_SBN_sap_anneal_1150_60_4.txt")
         
-        assert result['sample_id'] == '2476'
+        assert result['sample_number'] == '2476'
         assert result['material'] == 'SBN'
         assert result['substrate'] == 'sap'
-        assert result['has_annealing'] is True
-        assert result['annealing_temp'] == 1150
-        assert result['annealing_time'] == 60
-        assert result['scan_number'] == 4
+        assert result['annealed'] is True
+        assert result['extra'] == '1150_60_4'
         assert result['is_valid'] is True
     
     def test_parse_with_processing_notes(self):
-        """Тест обработки дополнительных меток"""
+        """Тест обработки дополнительных меток в extra"""
         result = parse_filename("2347_BZT_SiC_anneal_other_side_8.txt")
         
-        assert result['sample_id'] == '2347'
+        assert result['sample_number'] == '2347'
         assert result['material'] == 'BZT'
         assert result['substrate'] == 'SiC'
-        assert result['has_annealing'] is True
-        assert 'other side' in result.get('processing_notes', '')
+        assert result['annealed'] is True
+        assert result['extra'] == 'other_side_8'
         assert result['is_valid'] is True
     
     def test_parse_complex_material(self):
         """Тест сложного названия материала"""
         result = parse_filename("2328_BSrZrTi_0_5__sic_anneal_4.txt")
         
-        assert result['sample_id'] == '2328'
+        assert result['sample_number'] == '2328'
         assert result['material'] == 'BSrZrTi'
-        assert result['substrate'] == 'SiC'
-        assert result['has_annealing'] is True
+        assert result['substrate'] is None
+        assert result['annealed'] is True
+        assert result['extra'] == '0_5_sic_4'
         assert result['is_valid'] is True
     
     def test_invalid_date_format(self):
