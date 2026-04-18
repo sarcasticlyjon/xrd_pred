@@ -22,14 +22,11 @@ python -c "from mlxrd.data import XRDDatasetBuilder; print('✅ OK')"
 
 ## 🎯 НОВЫЕ ВОЗМОЖНОСТИ V2.0
 
-### ✅ 1. **Progress Bars** (tqdm)
-### ✅ 2. **Parallel Processing** (multiprocessing)
-### ✅ 3. **Duplicate Detection** (автопроверка sample_id)
-### ✅ 4. **Failed Files Logging** (детальные логи)
-### ✅ 5. **Recovery Mode** (восстановление битых файлов)
-### ✅ 6. **Build Report** (детальная статистика)
-### ✅ 7. **Multiple Export Formats** (CSV, Parquet)
-### ✅ 8. **Point-wise Dataset Builder** (2θ/intensity + метаданные)
+### ✅ 1. **Point-wise сборка** (`2thetta`/`intensity`)
+### ✅ 2. **Wrapper compatibility** (`XRDDatasetBuilder` -> point-wise)
+### ✅ 3. **Metadata enrichment** (Excel + gas ratios)
+### ✅ 4. **Deprecated API guard** (`return_report=True` -> ошибка)
+### ✅ 5. **Multiple Export Formats** (CSV, Parquet)
 
 ---
 
@@ -52,12 +49,10 @@ python -c "from mlxrd.data import XRDDatasetBuilder; print('✅ OK')"
 
 ## 📊 Какие столбцы формируются
 
-`XRDDatasetBuilder` возвращает агрегаты по интенсивности:
-`intensity_mean`, `intensity_std` и `n_points`.  
-Исходной колонки `intensity` в результирующем датафрейме **нет** — это значит,
-что для обучения обычно используют `intensity_mean` (или другие агрегаты) в качестве `y`.
+`XRDDatasetBuilder` теперь формирует только point-wise датасет и
+возвращает колонки `2thetta` и `intensity` (плюс метаданные/признаки).
 
-### Точечный датасет (legacy-формат)
+### Точечный датасет (основной формат)
 
 Для построения датасета с колонками `2thetta/intensity` и расширенными
 технологическими параметрами используйте `XRDPointDatasetBuilder`.
@@ -84,11 +79,9 @@ from mlxrd import XRDDatasetBuilder
 df_points = XRDDatasetBuilder(
     xrd_folder='data/raw/xrd',
     metadata_file='data/raw/metadata/B-series_long.xlsx',
-    pointwise=True,
 ).build()
 print(df_points.columns)
 ```
-=======
 ---
 
 ## 📄 Формат имён файлов (важно)
@@ -107,184 +100,74 @@ print(df_points.columns)
 
 ---
 
-## 🧪 ТЕСТ 1: Progress Bars
+## 🧪 ТЕСТ 1: Базовая point-wise сборка
 
-**Что тестируем:** Progress bar показывается при обработке файлов
+**Что тестируем:** `XRDDatasetBuilder` формирует только point-wise датасет.
 
-**Код:** `test_1_progress.py`
+**Код:** `test_1_pointwise_build.py`
 
 ```python
 from mlxrd.data import XRDDatasetBuilder
-
-print("="*60)
-print("ТЕСТ 1: Progress Bars")
-print("="*60)
 
 builder = XRDDatasetBuilder(
     xrd_folder='path/to/your/xrd_files',
-    show_progress=True  # ← НОВОЕ: включить прогресс
+    metadata_file='path/to/metadata.xlsx',
 )
-
 df = builder.build()
 
-print(f"\n✅ ТЕСТ ПРОЙДЕН: {len(df)} samples loaded")
-print("   Вы должны были видеть progress bar!")
-```
-
-**Запуск:**
-```cmd
-python test_1_progress.py
-```
-
-**Ожидаемый вывод:**
-```
-============================================================
-ТЕСТ 1: Progress Bars
-============================================================
-Found 156 files
-Building: 100%|████████████████████| 156/156 [00:05<00:00, 31.2it/s]
-
-✅ ТЕСТ ПРОЙДЕН: 144 samples loaded
-   Вы должны были видеть progress bar!
+assert {'2thetta', 'intensity'}.issubset(df.columns)
+print(f"✅ OK: {len(df)} rows, point-wise columns present")
 ```
 
 ---
 
-## 🧪 ТЕСТ 2: Parallel Processing
+## 🧪 ТЕСТ 2: Проверка обёртки XRDDatasetBuilder
 
-**Что тестируем:** Ускорение с помощью multiprocessing
+**Что тестируем:** `XRDDatasetBuilder` и `XRDPointDatasetBuilder` дают одинаковую схему.
 
-**Код:** `test_2_parallel.py`
+**Код:** `test_2_wrapper_consistency.py`
 
 ```python
-from mlxrd.data import XRDDatasetBuilder
-import time
-
-print("="*60)
-print("ТЕСТ 2: Parallel Processing")
-print("="*60)
+from mlxrd.data import XRDDatasetBuilder, XRDPointDatasetBuilder
 
 folder = 'path/to/your/xrd_files'
+meta = 'path/to/metadata.xlsx'
 
-# Sequential
-print("\n1️⃣ Sequential (n_jobs=1):")
-start = time.time()
-builder1 = XRDDatasetBuilder(folder, n_jobs=1, show_progress=False)
-df1 = builder1.build()
-time1 = time.time() - start
-print(f"   Time: {time1:.2f}s, Samples: {len(df1)}")
+df_wrap = XRDDatasetBuilder(folder, metadata_file=meta).build()
+df_point = XRDPointDatasetBuilder(folder, metadata_xlsx=meta).build()
 
-# Parallel
-print("\n2️⃣ Parallel (n_jobs=4):")
-start = time.time()
-builder2 = XRDDatasetBuilder(folder, n_jobs=4, show_progress=False)
-df2 = builder2.build()
-time2 = time.time() - start
-print(f"   Time: {time2:.2f}s, Samples: {len(df2)}")
-
-# Speedup
-speedup = time1 / time2
-print(f"\n🚀 Speedup: {speedup:.2f}x faster!")
-
-assert len(df1) == len(df2), "❌ Different results!"
-print("✅ ТЕСТ ПРОЙДЕН: Parallel processing работает!")
-```
-
-**Запуск:**
-```cmd
-python test_2_parallel.py
-```
-
-**Ожидаемый вывод:**
-```
-============================================================
-ТЕСТ 2: Parallel Processing
-============================================================
-
-1️⃣ Sequential (n_jobs=1):
-   Time: 8.34s, Samples: 144
-
-2️⃣ Parallel (n_jobs=4):
-   Time: 2.51s, Samples: 144
-
-🚀 Speedup: 3.32x faster!
-✅ ТЕСТ ПРОЙДЕН: Parallel processing работает!
+assert set(df_wrap.columns) == set(df_point.columns)
+print("✅ Wrapper consistency passed")
 ```
 
 ---
 
-## 🧪 ТЕСТ 3: Duplicate Detection
+## 🧪 ТЕСТ 3: Поведение deprecated-параметра
 
-**Что тестируем:** Автоматическое обнаружение и удаление дубликатов
+**Что тестируем:** `return_report=True` больше не поддерживается.
 
-**Код:** `test_3_duplicates.py`
+**Код:** `test_3_return_report_deprecated.py`
 
 ```python
 from mlxrd.data import XRDDatasetBuilder
-import pandas as pd
 
-print("="*60)
-print("ТЕСТ 3: Duplicate Detection")
-print("="*60)
-
-builder = XRDDatasetBuilder('path/to/xrd', verbose=True)
-
-# Запускаем с отчётом
-df, report = builder.build(return_report=True)  # ← НОВОЕ!
-
-print("\n📊 BUILD REPORT:")
-print(report)
-
-# Проверяем что дубликатов нет
-if 'sample_id' in df.columns:
-    remaining_dups = df['sample_id'].duplicated().sum()
-    assert remaining_dups == 0, f"❌ Still have {remaining_dups} duplicates!"
-    print(f"\n✅ ТЕСТ ПРОЙДЕН: No duplicates in final dataset!")
-    print(f"   Removed: {report.duplicates_found}")
-else:
-    print("⚠️  No sample_id column (это нормально для некоторых датасетов)")
+builder = XRDDatasetBuilder('path/to/xrd')
+try:
+    builder.build(return_report=True)
+except ValueError as e:
+    assert 'return_report' in str(e)
+    print("✅ deprecated behavior confirmed")
 ```
 
-**Запуск:**
-```cmd
-python test_3_duplicates.py
-```
-
-**Ожидаемый вывод:**
-```
-============================================================
-ТЕСТ 3: Duplicate Detection
-============================================================
-Found 156 files
-Building: 100%|████████████████████| 156/156 [00:05<00:00]
-⚠️  Removing 12 duplicates
-
-📊 BUILD REPORT:
-╔══════════════════════════════════════════════╗
-║       DATASET BUILD REPORT v2.0              ║
-╠══════════════════════════════════════════════╣
-║ Total files:          156                    ║
-║ Successful:           144 (92.3%)            ║
-║ Failed:                12 (7.7%)             ║
-║ Duplicates removed:    12                    ║
-║ Final samples:        132                    ║
-╠══════════════════════════════════════════════╣
-║ Parsing success: 92.3%                       ║
-╚══════════════════════════════════════════════╝
-
-✅ ТЕСТ ПРОЙДЕН: No duplicates in final dataset!
-   Removed: 12
-```
-
-**Примечание по отчёту:**  
+**Примечание:**  
 `Parsing success` — доля файлов, успешно распарсенных в метаданные.  
 Файлы с ошибками чтения или некорректным спектром учитываются как неуспешные.
 
 ---
 
-## 🧪 ТЕСТ 4: Failed Files Logging
+## 🧪 ТЕСТ 4 (АРХИВ): Failed Files Logging
 
-**Что тестируем:** Детальное логирование failed files с причинами
+**Что тестируем:** архивный сценарий из удалённого агрегированного режима (неактуален для point-wise only).
 
 **Код:** `test_4_failed_logging.py`
 
@@ -297,7 +180,7 @@ print("ТЕСТ 4: Failed Files Logging")
 print("="*60)
 
 builder = XRDDatasetBuilder('path/to/xrd', verbose=True)
-df, report = builder.build(return_report=True)
+df = builder.build()
 
 # Сохраняем лог
 builder.save_failed_log('failed_files.json')  # ← НОВОЕ!
@@ -350,9 +233,9 @@ Found 156 files
 
 ---
 
-## 🧪 ТЕСТ 5: Recovery Mode
+## 🧪 ТЕСТ 5 (АРХИВ): Recovery Mode
 
-**Что тестируем:** Восстановление частично битых файлов
+**Что тестируем:** архивный сценарий из удалённого агрегированного режима (неактуален для point-wise only).
 
 **Код:** `test_5_recovery.py`
 
@@ -413,73 +296,24 @@ python test_5_recovery.py
 
 ---
 
-## 🧪 ТЕСТ 6: Build Report
+## 🧪 ТЕСТ 6: Deprecated API guard
 
-**Что тестируем:** Детальный отчёт о построении
+**Что тестируем:** `return_report=True` больше не поддерживается.
 
-**Код:** `test_6_report.py`
+**Код:** `test_6_deprecated_guard.py`
 
 ```python
 from mlxrd.data import XRDDatasetBuilder
 
 print("="*60)
-print("ТЕСТ 6: Build Report")
+print("ТЕСТ 6: Deprecated API guard")
 print("="*60)
 
-builder = XRDDatasetBuilder('path/to/xrd', verbose=True)
-df, report = builder.build(return_report=True)  # ← return_report=True
-
-# Отчёт автоматически печатается
-# Но можем также получить данные программно:
-
-print("\n📊 PROGRAMMATIC ACCESS:")
-print(f"Total files:    {report.total_files}")
-print(f"Successful:     {report.successful}")
-print(f"Failed:         {report.failed}")
-print(f"Success rate:   {report.parsing_stats['success_rate']}")
-print(f"Final samples:  {report.final_samples}")
-
-# Проверки
-assert report.total_files > 0, "❌ No files found"
-assert report.successful > 0, "❌ No successful files"
-assert report.final_samples > 0, "❌ No final samples"
-
-print("\n✅ ТЕСТ ПРОЙДЕН: Build report работает!")
-```
-
-**Запуск:**
-```cmd
-python test_6_report.py
-```
-
-**Ожидаемый вывод:**
-```
-============================================================
-ТЕСТ 6: Build Report
-============================================================
-Found 156 files
-Building: 100%|████████████████████| 156/156 [00:05<00:00]
-
-╔══════════════════════════════════════════════╗
-║       DATASET BUILD REPORT v2.0              ║
-╠══════════════════════════════════════════════╣
-║ Total files:          156                    ║
-║ Successful:           144 (92.3%)            ║
-║ Failed:                12 (7.7%)             ║
-║ Duplicates removed:    12                    ║
-║ Final samples:        132                    ║
-╠══════════════════════════════════════════════╣
-║ Parsing success: 92.3%                       ║
-╚══════════════════════════════════════════════╝
-
-📊 PROGRAMMATIC ACCESS:
-Total files:    156
-Successful:     144
-Failed:         12
-Success rate:   92.3%
-Final samples:  132
-
-✅ ТЕСТ ПРОЙДЕН: Build report работает!
+builder = XRDDatasetBuilder('path/to/xrd')
+try:
+    builder.build(return_report=True)
+except ValueError as exc:
+    print("✅ ТЕСТ ПРОЙДЕН:", exc)
 ```
 
 ---
@@ -565,12 +399,11 @@ Dataset: (132, 8)
 ## 📋 ЧЕКЛИСТ ТЕСТИРОВАНИЯ
 
 ### Обязательные тесты:
-- [ ] **Тест 1:** Progress Bars ✅
-- [ ] **Тест 2:** Parallel Processing ✅
-- [ ] **Тест 3:** Duplicate Detection ✅
-- [ ] **Тест 4:** Failed Files Logging ✅
-- [ ] **Тест 5:** Recovery Mode ✅
-- [ ] **Тест 6:** Build Report ✅
+- [ ] **Тест 1:** Базовая point-wise сборка ✅
+- [ ] **Тест 2:** Wrapper consistency ✅
+- [ ] **Тест 3:** Deprecated API guard ✅
+- [ ] **Тест 4 (архив):** Failed Files Logging
+- [ ] **Тест 5 (архив):** Recovery Mode
 - [ ] **Тест 7:** Export Formats ✅
 
 ### Опциональные проверки:
@@ -583,13 +416,11 @@ Dataset: (132, 8)
 ## 🎯 КРИТЕРИИ УСПЕХА
 
 ✅ **Модуль готов если:**
-1. Все 7 тестов проходят
-2. Progress bar показывается
-3. Parallel ускоряет обработку
-4. Дубликаты удаляются автоматически
-5. Failed files логируются с причинами
-6. Recovery восстанавливает файлы
-7. Отчёт содержит полную статистику
+1. Базовая point-wise сборка проходит успешно
+2. Wrapper (`XRDDatasetBuilder`) совпадает по схеме с `XRDPointDatasetBuilder`
+3. `return_report=True` корректно отклоняется
+4. Экспорт в CSV/Parquet работает
+5. Архивные тесты помечены как неактуальные для point-wise only
 
 ---
 

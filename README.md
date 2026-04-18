@@ -96,21 +96,16 @@ pip install -e ".[dev]"
 ```python
 from mlxrd import XRDDatasetBuilder, XRDPointDatasetBuilder, train_model, plot_predictions
 
-# 1. Построение датасета
-builder = XRDDatasetBuilder(
+# 1. Построение point-wise датасета (основной и единственный режим)
+point_builder = XRDPointDatasetBuilder(
     xrd_folder='data/raw/xrd',
-    n_jobs=4,              # Параллельная обработка
-    show_progress=True     # Progress bar
+    metadata_xlsx='data/raw/metadata/B-series_long.xlsx'
 )
+df = point_builder.build()
 
-df, report = builder.build(return_report=True)
-print(report)  # Детальная статистика
-
-# 2. Подготовка данных
-# XRDDatasetBuilder возвращает агрегаты (intensity_mean/intensity_std),
-# а не исходную колонку intensity.
-X = df.drop(columns=['intensity_mean'])
-y = df['intensity_mean']
+# 2. Подготовка данных (пример)
+X = df.drop(columns=['intensity'])
+y = df['intensity']
 
 # 3. Обучение модели
 model, metrics = train_model(
@@ -128,20 +123,12 @@ plot_predictions(
     save_path='pred.html'
 )
 
-# Для legacy-датасета (2theta/intensity + метаданные)
-point_builder = XRDPointDatasetBuilder(
-    xrd_folder='data/raw/xrd',
-    metadata_xlsx='data/raw/metadata/B-series_long.xlsx'
-)
-point_df = point_builder.build()
-
-# Если нужен legacy-формат через XRDDatasetBuilder
+# XRDDatasetBuilder оставлен как совместимый wrapper и
+# тоже собирает только point-wise датасет
 point_df = XRDDatasetBuilder(
     xrd_folder='data/raw/xrd',
     metadata_file='data/raw/metadata/B-series_long.xlsx',
-    pointwise=True,
 ).build()
-=======
 ```
 
 ---
