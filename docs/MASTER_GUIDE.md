@@ -96,16 +96,13 @@ config = Config.from_env('development')
 # 1. Построение датасета
 builder = XRDDatasetBuilder(
     xrd_folder='data/raw/xrd',
-    n_jobs=4,
-    show_progress=True
 )
-df, report = builder.build(return_report=True)
+df = builder.build()
 
 # 2. Препроцессинг
-# XRDDatasetBuilder возвращает агрегаты (intensity_mean/intensity_std),
-# а не исходную колонку intensity.
-X = df[['material', 'substrate', 'temperature']]
-y = df['intensity_mean']
+# XRDDatasetBuilder теперь работает только в point-wise режиме.
+X = df[['material', 'substrate', '2thetta']]
+y = df['intensity']
 
 encoder = TargetEncoder(min_samples_leaf=10)
 X_encoded = encoder.fit_transform(X['material'], y)
@@ -123,7 +120,7 @@ plot_predictions(y, y_pred, interactive=True)
 ```
 
  
-### Пример 1b: Legacy-точечный датасет
+### Пример 1b: Точечный датасет
 
 ```python
 from mlxrd import XRDPointDatasetBuilder
@@ -144,24 +141,17 @@ from mlxrd import XRDDatasetBuilder
 df_points = XRDDatasetBuilder(
     xrd_folder='data/raw/xrd',
     metadata_file='data/raw/metadata/B-series_long.xlsx',
-    pointwise=True,
 ).build()
 ```
-=======
-=======
 
 ---
 
 ## 🧭 Как устроен pipeline (логика работы)
 
 1. **Data Pipeline**  
-   `XRDDatasetBuilder` читает XRD-файлы, извлекает метаданные из имени файла и строит датафрейм с признаками.  
-   Результат: таблица с признаками + `BuildReport` (успехи/ошибки/дубликаты/статистика парсинга).  
-   По умолчанию сохраняются агрегаты `intensity_mean` и `intensity_std` (сырых интенсивностей в датафрейме нет).
-   Для legacy-формата можно передать `metadata_file` (xlsx) и `pointwise=True`.
-=======
-=======
-   Результат: таблица с признаками + `BuildReport` (успехи/ошибки/дубликаты/статистика парсинга).
+   `XRDDatasetBuilder` (через `XRDPointDatasetBuilder`) читает XRD-файлы, извлекает метаданные и строит point-wise датафрейм.  
+   Результат: таблица точек спектра (`2thetta`, `intensity`) с технологическими и химическими признаками.  
+   `XRDDatasetBuilder` сохранён как совместимый wrapper; рекомендуется напрямую использовать `XRDPointDatasetBuilder`.
 
 
 ### 📄 Формат имён файлов (важно)
@@ -175,10 +165,7 @@ df_points = XRDDatasetBuilder(
 - `123 Material.txt`
 - `123 Material substrate.txt`
 - `B-467_STO_LAO_4.txt`
-=======
-changes-hwidr5
 - `B-467_STO_LAO_4.txt`
-=======
 
 
 Если файл не подходит ни под один шаблон, он считается **неуспешно распарсенным** и
@@ -244,7 +231,7 @@ print(f"Best: {best_key} with R²={info['metrics']['r2_test']:.4f}")
 ### 1. Data Pipeline
 
 **Основные функции:**
-- `XRDDatasetBuilder` - построение датасета
+- `XRDDatasetBuilder` - совместимый wrapper для point-wise сборки
 - `XRDPointDatasetBuilder` - точечный датасет (2θ/intensity + метаданные)
 - `MetadataExtractor` - извлечение метаданных
 - `XRDSpectrum` - работа со спектрами
@@ -253,9 +240,9 @@ print(f"Best: {best_key} with R²={info['metrics']['r2_test']:.4f}")
 - Progress bars
 - Parallel processing (n_jobs)
 - Recovery mode
-- Duplicate detection
-- Build reports
-- Point-wise dataset builder (на основе legacy-логики)
+- Point-wise-only dataset builder
+- Нормализация substrate и аннотация sap1
+- Интеграция Excel-метаданных и газовых долей
 
 **Подробнее:** `DATA_V2_TESTING_GUIDE.md`
 
@@ -441,8 +428,8 @@ pytest tests/test_data.py -v
 
 - Для гидратов в химических формулах используйте символ `·` (например, `CuSO4·5H2O`).  
   Точка `.` рассматривается как десятичный разделитель (например, `Ba0.5Sr0.5TiO3`).
-- В `BuildReport` показатель **Parsing success** считается по количеству файлов, 
-  которые успешно распарсились в метаданные.
+- `XRDDatasetBuilder.build(return_report=True)` больше не поддерживается,
+  используйте `build()` для point-wise сборки.
 
 ---
 
@@ -470,10 +457,10 @@ builder = XRDDatasetBuilder(
 
 ### Q: Как ускорить обработку большого датасета?
 
-A: Используйте параллелизацию и chunking:
+A: Используйте chunking и предфильтрацию признаков:
 ```python
-# Parallel processing
-builder = XRDDatasetBuilder(xrd_folder='data', n_jobs=4)
+# Point-wise builder
+builder = XRDDatasetBuilder(xrd_folder='data')
 
 # Chunked I/O
 for chunk in chunked_read('large.csv', chunksize=10000):
